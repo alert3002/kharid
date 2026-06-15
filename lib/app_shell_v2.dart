@@ -1,6 +1,5 @@
 import "dart:async";
 import "dart:math" show Random, min, max;
-import "dart:ui";
 
 import "package:flutter/foundation.dart" show kDebugMode;
 import "package:flutter/material.dart";
@@ -2680,6 +2679,10 @@ class _HeroCardState extends State<_HeroCard> {
   int page = 0;
   bool loading = true;
   List<HomeBannerItem> slides = const [];
+  Timer? _autoTimer;
+
+  List<HomeBannerItem> get _displaySlides =>
+      slides.isNotEmpty ? slides : HomeBannerItem.fallbackSlides;
 
   @override
   void initState() {
@@ -2695,21 +2698,43 @@ class _HeroCardState extends State<_HeroCard> {
         slides = list;
         loading = false;
       });
+      _restartAutoPlay();
     } catch (_) {
       if (!mounted) return;
       setState(() => loading = false);
+      _restartAutoPlay();
     }
+  }
+
+  void _restartAutoPlay() {
+    _autoTimer?.cancel();
+    final count = _displaySlides.length;
+    if (count <= 1) return;
+    _autoTimer = Timer.periodic(const Duration(milliseconds: 6500), (_) {
+      if (!mounted || !controller.hasClients) return;
+      final next = (page + 1) % count;
+      controller.animateToPage(next, duration: const Duration(milliseconds: 420), curve: Curves.easeOutCubic);
+    });
   }
 
   @override
   void dispose() {
+    _autoTimer?.cancel();
     controller.dispose();
     super.dispose();
   }
 
-  void go(int next) {
-    if (next < 0 || next >= slides.length) return;
+  void _goRelative(int delta) {
+    final count = _displaySlides.length;
+    if (count <= 1) return;
+    final next = (page + delta + count) % count;
     controller.animateToPage(next, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
+  }
+
+  void _goTo(int index) {
+    final count = _displaySlides.length;
+    if (index < 0 || index >= count) return;
+    controller.animateToPage(index, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
   }
 
   void _openBanner(BuildContext context, HomeBannerItem banner) {
@@ -2731,22 +2756,67 @@ class _HeroCardState extends State<_HeroCard> {
     }
   }
 
-  Widget _dot(bool active) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      height: 6,
-      width: active ? 18 : 6,
-      margin: const EdgeInsets.only(right: 6),
+  Widget _dot(bool active, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 6,
+        width: active ? 18 : 6,
+        margin: const EdgeInsets.only(right: 6),
+        decoration: BoxDecoration(
+          color: active ? Colors.white : Colors.white.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(999),
+        ),
+      ),
+    );
+  }
+
+  Widget _bannerImage(String? imageUrl) {
+    const w = 108.0;
+    const h = 168.0;
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return SizedBox(
+        width: w,
+        height: h,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Image.network(
+            imageUrl,
+            width: w,
+            height: h,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            errorBuilder: (_, _, _) => _bannerImagePlaceholder(w, h),
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return ColoredBox(
+                color: Colors.white.withValues(alpha: 0.12),
+                child: const Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70))),
+              );
+            },
+          ),
+        ),
+      );
+    }
+    return _bannerImagePlaceholder(w, h);
+  }
+
+  Widget _bannerImagePlaceholder(double w, double h) {
+    return Container(
+      width: w,
+      height: h,
       decoration: BoxDecoration(
-        color: active ? Colors.white : Colors.white.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(999),
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!loading && slides.isEmpty) return const SizedBox.shrink();
     if (loading) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
@@ -2762,6 +2832,8 @@ class _HeroCardState extends State<_HeroCard> {
         ),
       );
     }
+
+    final display = _displaySlides;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
@@ -2780,14 +2852,19 @@ class _HeroCardState extends State<_HeroCard> {
               children: [
                 PageView.builder(
                   controller: controller,
-                  itemCount: slides.length,
-                  onPageChanged: (i) => setState(() => page = i),
+                  itemCount: display.length,
+                  physics: const PageScrollPhysics(parent: ClampingScrollPhysics()),
+                  allowImplicitScrolling: true,
+                  onPageChanged: (i) {
+                    setState(() => page = i);
+                    _restartAutoPlay();
+                  },
                   itemBuilder: (context, i) {
-                    final s = slides[i];
+                    final s = display[i];
                     final grad = HomeBannerItem.gradientColors(s.gradient);
                     final imageUrl = s.image?.trim();
                     final hasLink = (s.productSlug?.trim().isNotEmpty ?? false) || s.linkUrl.trim().isNotEmpty;
-                    return Container(
+                    return DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
@@ -2796,6 +2873,7 @@ class _HeroCardState extends State<_HeroCard> {
                         ),
                       ),
                       child: Stack(
+                        fit: StackFit.expand,
                         children: [
                           Positioned.fill(
                             child: DecoratedBox(
@@ -2812,8 +2890,9 @@ class _HeroCardState extends State<_HeroCard> {
                             ),
                           ),
                           Padding(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
                             child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Expanded(
                                   child: Column(
@@ -2827,6 +2906,8 @@ class _HeroCardState extends State<_HeroCard> {
                                       const SizedBox(height: 10),
                                       Text(
                                         s.title,
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w900,
@@ -2837,6 +2918,8 @@ class _HeroCardState extends State<_HeroCard> {
                                       const SizedBox(height: 8),
                                       Text(
                                         s.subtitle,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
                                           color: Colors.white70,
                                           fontWeight: FontWeight.w600,
@@ -2862,32 +2945,7 @@ class _HeroCardState extends State<_HeroCard> {
                                   ),
                                 ),
                                 const SizedBox(width: 10),
-                                if (imageUrl != null && imageUrl.isNotEmpty)
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(18),
-                                    child: Image.network(
-                                      imageUrl,
-                                      width: 120,
-                                      height: double.infinity,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, _, _) => const SizedBox(width: 120),
-                                    ),
-                                  )
-                                else
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(18),
-                                    child: BackdropFilter(
-                                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                                      child: Container(
-                                        width: 120,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.16),
-                                          borderRadius: BorderRadius.circular(18),
-                                          border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                                _bannerImage(imageUrl),
                               ],
                             ),
                           ),
@@ -2897,38 +2955,37 @@ class _HeroCardState extends State<_HeroCard> {
                   },
                 ),
 
-                // arrows
-                Positioned(
-                  left: 10,
-                  top: 0,
-                  bottom: 0,
-                  child: Center(
-                    child: _CircleBtn(
-                      icon: Icons.chevron_left_rounded,
-                      onTap: () => go(page - 1),
+                if (display.length > 1) ...[
+                  Positioned(
+                    left: 10,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: _CircleBtn(
+                        icon: Icons.chevron_left_rounded,
+                        onTap: () => _goRelative(-1),
+                      ),
                     ),
                   ),
-                ),
-                Positioned(
-                  right: 10,
-                  top: 0,
-                  bottom: 0,
-                  child: Center(
-                    child: _CircleBtn(
-                      icon: Icons.chevron_right_rounded,
-                      onTap: () => go(page + 1),
+                  Positioned(
+                    right: 10,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: _CircleBtn(
+                        icon: Icons.chevron_right_rounded,
+                        onTap: () => _goRelative(1),
+                      ),
                     ),
                   ),
-                ),
-
-                // dots bottom-left
-                Positioned(
-                  left: 14,
-                  bottom: 12,
-                  child: Row(
-                    children: List.generate(slides.length, (i) => _dot(i == page)),
+                  Positioned(
+                    left: 14,
+                    bottom: 12,
+                    child: Row(
+                      children: List.generate(display.length, (i) => _dot(i == page, () => _goTo(i))),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),

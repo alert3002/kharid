@@ -892,6 +892,82 @@ class _AccountSettingsFormState extends State<AccountSettingsForm> {
             ],
           ),
         ),
+        settingsCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text("Удаление аккаунта", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: titleColor)),
+              const SizedBox(height: 6),
+              Text(
+                "Все личные данные будут удалены безвозвратно. История заказов сохранится в анонимном виде для бухгалтерии.",
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: muted, height: 1.35),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: token == null
+                    ? null
+                    : () async {
+                        final ok = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text("Удалить аккаунт?"),
+                            content: const Text(
+                              "Это действие нельзя отменить. Ваши имя, телефон, адрес и фото будут удалены.",
+                            ),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Отмена")),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text("Удалить", style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (ok != true || !context.mounted) return;
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text("Подтвердите удаление"),
+                            content: const Text("Нажмите «Да», чтобы окончательно удалить аккаунт."),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Нет")),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text("Да, удалить", style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm != true || !context.mounted) return;
+                        setState(() {
+                          saving = true;
+                          msg = null;
+                        });
+                        try {
+                          await widget.api.deleteAccount(token);
+                          await app.logout();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Аккаунт удалён")),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) setState(() => msg = "$e");
+                        } finally {
+                          if (mounted) setState(() => saving = false);
+                        }
+                      },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red.shade700,
+                  side: BorderSide(color: Colors.red.shade300),
+                  minimumSize: const Size.fromHeight(44),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text("Удалить аккаунт", style: TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

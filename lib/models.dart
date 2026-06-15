@@ -1,5 +1,7 @@
 import "package:flutter/material.dart" show Color;
 
+import "api_config.dart";
+
 class Paginated<T> {
   const Paginated({required this.count, required this.next, required this.results});
 
@@ -687,12 +689,45 @@ class HomeBannerItem {
       title: (json["title"] ?? "").toString(),
       subtitle: (json["subtitle"] ?? "").toString(),
       badgeText: (json["badge_text"] ?? "Предложение дня").toString(),
-      image: json["image"]?.toString(),
+      image: normalizeMediaUrl(json["image"]?.toString()),
       gradient: (json["gradient"] ?? "sky").toString(),
       linkUrl: (json["link_url"] ?? "").toString(),
       productSlug: json["product_slug"]?.toString(),
     );
   }
+
+  static const List<HomeBannerItem> fallbackSlides = [
+    HomeBannerItem(
+      id: -1,
+      title: "Очиститель воздуха",
+      subtitle: "Комфорт и чистый воздух для дома и офиса.",
+      badgeText: "Предложение дня",
+      image: null,
+      gradient: "sky",
+      linkUrl: "",
+      productSlug: null,
+    ),
+    HomeBannerItem(
+      id: -2,
+      title: "Электроника и гаджеты",
+      subtitle: "Техника с доставкой по всему Таджикистану.",
+      badgeText: "Предложение дня",
+      image: null,
+      gradient: "violet",
+      linkUrl: "",
+      productSlug: null,
+    ),
+    HomeBannerItem(
+      id: -3,
+      title: "Весенняя коллекция",
+      subtitle: "Обновите гардероб со скидками сезона.",
+      badgeText: "Предложение дня",
+      image: null,
+      gradient: "emerald",
+      linkUrl: "",
+      productSlug: null,
+    ),
+  ];
 
   static List<Color> gradientColors(String preset) {
     switch (preset) {

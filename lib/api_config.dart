@@ -86,6 +86,17 @@ Future<String> resolveApiBaseUrl() async {
   return kBootstrapApiBaseUrl;
 }
 
+/// Media URLs from API — force HTTPS (required on iOS ATS).
+String? normalizeMediaUrl(String? raw) {
+  if (raw == null) return null;
+  var s = raw.trim();
+  if (s.isEmpty) return null;
+  if (s.startsWith("http://")) {
+    s = "https://${s.substring(7)}";
+  }
+  return s;
+}
+
 /// Хатогии техникӣ → паёми фаҳмо барои корбар.
 String friendlyApiError(Object error) {
   final msg = error.toString();

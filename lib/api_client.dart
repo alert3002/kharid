@@ -106,6 +106,11 @@ class ApiClient {
     return MeProfile.fromJson(data);
   }
 
+  Future<void> deleteAccount(String accessToken) async {
+    final res = await http.delete(_uri("/me/"), headers: _auth(accessToken));
+    _decode(res);
+  }
+
   Future<List<ProductListItem>> fetchWishlist(String accessToken) async {
     final res = await http.get(_uri("/wishlist/"), headers: _auth(accessToken));
     final data = _decode(res);
@@ -493,11 +498,18 @@ class ApiClient {
   }
 
   Future<List<HomeBannerItem>> homeBanners() async {
-    final res = await http.get(_uri("/home-banners/"), headers: {"Accept": "application/json"});
-    final data = _decode(res);
-    final raw = data["results"] ?? data;
-    if (raw is List) {
-      return raw.whereType<Map<String, dynamic>>().map(HomeBannerItem.fromJson).toList();
+    try {
+      final res = await http
+          .get(_uri("/home-banners/"), headers: {"Accept": "application/json"})
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode < 200 || res.statusCode >= 300) return const [];
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final raw = data is Map ? (data["results"] ?? data) : data;
+      if (raw is List) {
+        return raw.whereType<Map<String, dynamic>>().map(HomeBannerItem.fromJson).toList();
+      }
+    } catch (_) {
+      // fallback handled in UI
     }
     return const [];
   }
