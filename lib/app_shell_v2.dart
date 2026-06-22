@@ -1,7 +1,7 @@
 import "dart:async";
 import "dart:math" show Random, min, max;
 
-import "package:flutter/foundation.dart" show kDebugMode;
+import "package:flutter/foundation.dart" show kDebugMode, kReleaseMode;
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:flutter_inappwebview/flutter_inappwebview.dart";
@@ -2076,8 +2076,19 @@ void _openKharidSearchBottomSheet(BuildContext context) {
   );
 }
 
-Future<void> _openExternalUrl(String url) async {
-  await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+Future<void> _openExternalUrl(String url, [BuildContext? snackContext]) async {
+  final uri = Uri.tryParse(url);
+  if (uri == null) return;
+  final ok = await canLaunchUrl(uri);
+  if (!ok) {
+    if (snackContext != null && snackContext.mounted) {
+      ScaffoldMessenger.of(snackContext).showSnackBar(
+        SnackBar(content: Text("Не удалось открыть: $url")),
+      );
+    }
+    return;
+  }
+  await launchUrl(uri, mode: LaunchMode.externalApplication);
 }
 
 /// Бейджи меню — монанди `site-header.tsx` (0 = пинҳон).
@@ -2086,26 +2097,35 @@ String? _navCountBadge(int count) {
   return count > 99 ? "99+" : count.toString();
 }
 
-void _openKharidMenuSheet(BuildContext context) {
-  final app = context.read<AppState>();
+void _openKharidMenuSheet(BuildContext anchorContext) {
+  final app = anchorContext.read<AppState>();
   final api = app.api;
   final role = app.me?.role ?? "client";
+  final tabNav = Navigator.of(anchorContext);
   bool isDarkMenu = app.isDarkTheme;
   unawaited(app.reloadStoredLists());
 
+  Future<void> closeMenu() async {
+    final rootNav = Navigator.of(anchorContext, rootNavigator: true);
+    if (rootNav.canPop()) {
+      await rootNav.maybePop();
+    }
+  }
+
   Future<void> openPage(Widget page) async {
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
-    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+    await closeMenu();
+    if (!anchorContext.mounted) return;
+    await tabNav.push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
   Future<void> openLink(String url) async {
-    Navigator.of(context).pop();
-    await _openExternalUrl(url);
+    await closeMenu();
+    if (!anchorContext.mounted) return;
+    await _openExternalUrl(url, anchorContext);
   }
 
   showGeneralDialog<void>(
-    context: context,
+    context: anchorContext,
     barrierDismissible: true,
     barrierLabel: "menu",
     barrierColor: Colors.black.withValues(alpha: 0.38),
@@ -2156,7 +2176,7 @@ void _openKharidMenuSheet(BuildContext context) {
                               const AppLogo(height: 32),
                               const Spacer(),
                               IconButton(
-                                onPressed: () => Navigator.of(ctx).pop(),
+                                onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(),
                                 icon: Icon(Icons.close_rounded, color: textMuted),
                               ),
                             ],
@@ -2316,12 +2336,6 @@ void _openKharidMenuSheet(BuildContext context) {
                                 ),
                                 _MenuTile(
                                   isDark: isDarkMenu,
-                                  icon: Icons.info_outline_rounded,
-                                  title: "О нас",
-                                  onTap: () => openPage(const AboutScreen()),
-                                ),
-                                _MenuTile(
-                                  isDark: isDarkMenu,
                                   icon: Icons.workspace_premium_outlined,
                                   title: "Бонусная программа",
                                   onTap: () => openPage(const BonusScreen()),
@@ -2475,7 +2489,7 @@ class _MenuTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: isDark ? const Color(0xFF172554) : const Color(0xFFE2E8F0)),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             child: Row(
               children: [
                 Container(
@@ -2681,8 +2695,11 @@ class _HeroCardState extends State<_HeroCard> {
   List<HomeBannerItem> slides = const [];
   Timer? _autoTimer;
 
-  List<HomeBannerItem> get _displaySlides =>
-      slides.isNotEmpty ? slides : HomeBannerItem.fallbackSlides;
+  List<HomeBannerItem> get _displaySlides {
+    if (slides.isNotEmpty) return slides;
+    if (kReleaseMode) return const [];
+    return HomeBannerItem.fallbackSlides;
+  }
 
   @override
   void initState() {
@@ -3387,10 +3404,42 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
               ? Center(child: Text(error!, style: TextStyle(color: onTile.withValues(alpha: 0.85))))
               : products.isEmpty
                   ? Center(
-                      child: Text(
-                        "В этой категории пока нет товаров.",
-                        style: TextStyle(color: onTile.withValues(alpha: 0.75)),
-                        textAlign: TextAlign.center,
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.inventory_2_outlined, size: 48, color: onTile.withValues(alpha: 0.45)),
+                            const SizedBox(height: 16),
+                            Text(
+                              "В категории «${widget.title}» сейчас нет товаров",
+                              style: TextStyle(color: onTile.withValues(alpha: 0.85), fontWeight: FontWeight.w700, fontSize: 16),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "Посмотрите другие категории или весь каталог.",
+                              style: TextStyle(color: onTile.withValues(alpha: 0.6), fontSize: 13),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 20),
+                            FilledButton.icon(
+                              onPressed: () {
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => CategoryProductsScreen(
+                                      api: widget.api,
+                                      categorySlug: null,
+                                      title: "Каталог",
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.grid_view_rounded, size: 18),
+                              label: const Text("Весь каталог"),
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   : CustomScrollView(
