@@ -3739,33 +3739,6 @@ class _IconCircle extends StatelessWidget {
   }
 }
 
-const List<List<Color>> _kCatalogGradients = [
-  [Color(0xFFEC4899), Color(0xFF7C3AED)],
-  [Color(0xFF22C55E), Color(0xFFEAB308)],
-  [Color(0xFF06B6D4), Color(0xFF2563EB)],
-  [Color(0xFFF97316), Color(0xFFEA580C)],
-  [Color(0xFFA855F7), Color(0xFF1E3A8A)],
-  [Color(0xFF14B8A6), Color(0xFF14532D)],
-];
-
-String _categoryInitials(String raw) {
-  final s = raw.trim();
-  if (s.isEmpty) return "?";
-  String firstGrapheme(String x) {
-    if (x.isEmpty) return "";
-    return String.fromCharCode(x.runes.first);
-  }
-
-  final parts = s.split(RegExp(r"\s+"));
-  if (parts.length >= 2) {
-    return "${firstGrapheme(parts[0])}${firstGrapheme(parts[1])}".toUpperCase();
-  }
-  if (s.length >= 2) return s.substring(0, 2).toUpperCase();
-  return s.toUpperCase();
-}
-
-List<Color> _gradientForCatalogIndex(int i) => _kCatalogGradients[i % _kCatalogGradients.length];
-
 class _CatalogPageChrome extends StatelessWidget {
   const _CatalogPageChrome();
 
@@ -3800,24 +3773,33 @@ class _CatalogPageChrome extends StatelessWidget {
   }
 }
 
+Widget _catalogPhoto(String? imageUrl, {BoxFit fit = BoxFit.cover}) {
+  final url = imageUrl?.trim() ?? "";
+  if (url.isEmpty) {
+    return const ColoredBox(color: Color(0xFFF1F5F9));
+  }
+  return Image.network(
+    url,
+    fit: fit,
+    width: double.infinity,
+    height: double.infinity,
+    errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFFF1F5F9)),
+  );
+}
+
 class _CatalogCategoryGridCard extends StatelessWidget {
   const _CatalogCategoryGridCard({
     required this.name,
-    required this.initials,
-    required this.colors,
     required this.onTap,
     this.imageUrl,
   });
 
   final String name;
-  final String initials;
-  final List<Color> colors;
   final VoidCallback onTap;
   final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
-    final inner = colors.first;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -3826,75 +3808,40 @@ class _CatalogCategoryGridCard extends StatelessWidget {
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
+            color: const Color(0xFFF1F5F9),
             boxShadow: const [BoxShadow(color: Color(0x120F172A), blurRadius: 12, offset: Offset(0, 6))],
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(3),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(17),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Container(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _catalogPhoto(imageUrl),
+                Positioned(
+                  left: 8,
+                  right: 8,
+                  bottom: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          inner.withValues(alpha: 0.92),
-                          Color.lerp(inner, colors.last, 0.55)!,
-                        ],
-                      ),
+                      color: Colors.black.withValues(alpha: 0.40),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                  ),
-                  if (imageUrl != null && imageUrl!.isNotEmpty)
-                    Positioned.fill(
-                      child: Opacity(
-                        opacity: 0.35,
-                        child: Image.network(imageUrl!, fit: BoxFit.cover),
-                      ),
-                    ),
-                  Center(
                     child: Text(
-                      initials,
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white.withValues(alpha: 0.95),
-                        shadows: const [Shadow(color: Color(0x40000000), blurRadius: 8)],
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.left,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                        height: 1.2,
                       ),
                     ),
                   ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.52),
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(17),
-                          bottomRight: Radius.circular(17),
-                        ),
-                      ),
-                      child: Text(
-                        name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11,
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -4017,14 +3964,11 @@ class _SubcategoryListScreenState extends State<SubcategoryListScreen> {
                     itemCount: subs.length,
                     itemBuilder: (context, index) {
                       final c = subs[index];
-                      final gi = widget.allCategories.indexWhere((x) => x.id == c.id);
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: _SubcategoryListRow(
                           title: c.name,
                           productCount: c.productCount,
-                          colors: _gradientForCatalogIndex(gi >= 0 ? gi : index),
-                          initials: _categoryInitials(c.name),
                           imageUrl: c.image,
                           onTap: () {
                             Navigator.of(context).push(
@@ -4048,16 +3992,12 @@ class _SubcategoryListRow extends StatelessWidget {
   const _SubcategoryListRow({
     required this.title,
     required this.productCount,
-    required this.colors,
-    required this.initials,
     required this.onTap,
     this.imageUrl,
   });
 
   final String title;
   final int productCount;
-  final List<Color> colors;
-  final String initials;
   final VoidCallback onTap;
   final String? imageUrl;
 
@@ -4092,27 +4032,7 @@ class _SubcategoryListRow extends StatelessWidget {
                 child: SizedBox(
                   width: 56,
                   height: 56,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
-                        ),
-                      ),
-                      if (imageUrl != null && imageUrl!.isNotEmpty)
-                        Opacity(
-                          opacity: 0.4,
-                          child: Image.network(imageUrl!, fit: BoxFit.cover),
-                        ),
-                      Center(
-                        child: Text(
-                          initials,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: _catalogPhoto(imageUrl),
                 ),
               ),
               const SizedBox(width: 14),
@@ -4315,11 +4235,8 @@ class _CatalogTabState extends State<CatalogTab> {
                           delegate: SliverChildBuilderDelegate(
                             (context, i) {
                               final c = categories[i];
-                              final gi = allCategories.indexWhere((x) => x.id == c.id);
                               return _CatalogCategoryGridCard(
                                 name: c.name,
-                                initials: _categoryInitials(c.name),
-                                colors: _gradientForCatalogIndex(gi >= 0 ? gi : i),
                                 imageUrl: c.image,
                                 onTap: () => _openCategory(context, c),
                               );
