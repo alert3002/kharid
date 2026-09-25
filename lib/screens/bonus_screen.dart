@@ -11,10 +11,10 @@ import "../widgets/kharid_site_header.dart";
 class BonusScreen extends StatefulWidget {
   const BonusScreen({super.key});
 
-  static const String _youtubeCalcRu = "https://www.youtube.com/watch?v=t_xjCNj0kZg";
-  static const String _youtubeCalcTj = "https://www.youtube.com/watch?v=nwS_HnwQ4wo";
-  static const String _thumbRu = "https://img.youtube.com/vi/t_xjCNj0kZg/hqdefault.jpg";
-  static const String _thumbTj = "https://img.youtube.com/vi/nwS_HnwQ4wo/hqdefault.jpg";
+  static const String _youtubeCalcRu = "https://youtube.com/shorts/jreYiOLuIlQ";
+  static const String _youtubeCalcTj = "https://youtube.com/shorts/tkyN4b74MG0";
+  static const String _thumbRu = "https://img.youtube.com/vi/jreYiOLuIlQ/hqdefault.jpg";
+  static const String _thumbTj = "https://img.youtube.com/vi/tkyN4b74MG0/hqdefault.jpg";
   static const String _siteUrl = "https://kharid.tj";
 
   @override

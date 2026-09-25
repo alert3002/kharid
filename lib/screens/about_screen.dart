@@ -14,9 +14,9 @@ class AboutScreen extends StatefulWidget {
   static const String _siteUrl = "https://kharid.tj";
 
   static const String _youtubeRu = "https://www.youtube.com/watch?v=0DBnIWgXUJI";
-  static const String _youtubeTj = "https://www.youtube.com/watch?v=9pmlEHgsyLI";
+  static const String _youtubeTj = "https://youtube.com/shorts/f3tTdUgFun0";
   static const String _thumbRu = "https://img.youtube.com/vi/0DBnIWgXUJI/hqdefault.jpg";
-  static const String _thumbTj = "https://img.youtube.com/vi/9pmlEHgsyLI/hqdefault.jpg";
+  static const String _thumbTj = "https://img.youtube.com/vi/f3tTdUgFun0/hqdefault.jpg";
 
   @override
   State<AboutScreen> createState() => _AboutScreenState();
